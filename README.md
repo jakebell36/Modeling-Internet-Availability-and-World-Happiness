@@ -1,4 +1,4 @@
-# Modeling-Internet-Availabilty-and-World-Happiness
+# Modeling-Internet-Availability-and-World-Happiness
 
 By Jake Bell
 
