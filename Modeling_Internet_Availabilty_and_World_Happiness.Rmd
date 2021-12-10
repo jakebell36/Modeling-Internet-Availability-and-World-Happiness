@@ -4,16 +4,20 @@ output: html_notebook
 ---
 
 By Jake Bell
+12/9/2021
 
-11/1/2021
+## Introduction:
 
-In this project, we will build and use Linear models with many predictors. Other tools being used will be measuring co-linearity with correlation plots and testing model performance with AIC and Multiple R-squared.
+In this project, I will be building Linear models with many predictors, in order to get increased accuracy compared to more basic linear models.
 
-**Goal:** Model the relationship between Internet Availability and World Happiness. 
+We will be using two datasets, the 2018 World Happiness Report and 2018 Global Internet Usage, and building a model to identify a relationship between Internet Availability and Happiness scores.
+Internet availability shows how many people in each country access the internet, and happiness scores are calculated using a variety of metrics, such as GDP, corruption perceptions, and life expectancy. Tools that will be used will be correlation plots and AIC, to measure co-linearity and model performance.
+
+**Goal:** Model the relationship between Internet Availability and World Happiness using Linear Models. 
 
 **Data Sources:**
 
-*  http://worldhappiness.report/ed/2019/ (2019 Data)
+* https://www.kaggle.com/unsdsn/world-happiness
 
 * https://www.kaggle.com/tanuprabhu/list-of-countries-by-number-of-internet-users (2018 Data)
 
@@ -21,7 +25,7 @@ In this project, we will build and use Linear models with many predictors. Other
 
 ## Section 1: Prep Data
 
-Load Necessary Packages
+First we must load Necessary Packages
 ```{r}
 library(tidyverse)
 library(fastR2)
@@ -30,13 +34,13 @@ library(patchwork)
 
 ```
 
-Load data, join the data together, and format nicely
+Now we load the 2 datasets for World Happiness and Internet Availability, and join it together.
 ```{r, message = FALSE, warning = FALSE}
 # Load Global Internet Usage dataset
 InternetData <- read_csv("../Datasets/List_of_Countries_by_number_of_Internet_Users.csv") %>%
   rename(Country = "Country or Area", 
-         Population.Rank = Rank, 
-         Internet.Usage.Rank = Rank_1) %>%
+         Population.Rank = Rank...4, 
+         Internet.Usage.Rank = Rank...6) %>%  # Rename columns to correct formatting
   filter( Internet.Usage.Rank != "-")
 
 InternetData$Internet.Usage.Rank <- as.numeric(InternetData$Internet.Usage.Rank)
@@ -54,31 +58,28 @@ InternetHappinessData <- merge(x = InternetData, y = HappinessData, by = "Countr
 
 head(InternetHappinessData)
 ```
+Now that we have our data combined together and formatted for use, we will now beging to prepare for building our model.
+
 
 ## Section 2: Prep for Model
 
-To prepare for constructing our models, we will first look at some relationships in our data.
+We will first look at some relationships in our data, in order to get a sense of what relationships in the data our model may follow. 
 
 ### Visualize Relationships with Various graphs
 
-Some relationships that I wanted to look at before building a model were seeing if Population size had an effect on the Internet Availability of a country, and if Internet Usage correlated with happiness score.
+Some relationships that I wanted to look at before building the model were seeing if Population size and Internet Usage had an effect on Happiness score.
 
 ```{r}
-# Show Percentage to Rank, with population as size
-gf_point(Percentage ~ Internet.Usage.Rank, data = InternetHappinessData, alpha = .5, size = ~ Population, color = "blue", title = "Percentage of Internet Users Ranked by Country, showing Population") 
-
+# Size vs Happiness
+gf_point(Population ~ Happiness.Score, data = InternetHappinessData, 
+         title = "Happiness Score for different Country Populations" )
 
 # Look at Internet Percentage compared to happiness
 gf_point(Happiness.Score ~ Percentage, data = InternetHappinessData, color = "blue", 
          title = "Happiness Score for Percentage of Population Internet Usage")
 ```
-For population size, there doesn't appear to be much of a relationship, especially compared to Internet Percentage.
+There doesn't appear to be much of a relationship between population size and happiness score, but many of the largest countries seem more concentrated in the middle ranges of the happiness scores. But looking at the relationship between % internet usage and Happiness score, we can see a clear correlation. This suggests to me that our model will look something like that positively correlated relationship.
 
-```{r}
-# size vs happiness
-gf_point(Population ~ Happiness.Score, data = InternetHappinessData, 
-         title = "Happiness Score for different Country Populations" )
-```
 
 
 ### Use correlation plots to visualize relationships and identify colinearity.
@@ -86,19 +87,13 @@ gf_point(Population ~ Happiness.Score, data = InternetHappinessData,
 Now that we have looked graphically at a few important relationships between some variables, we will look at all of the variables to see how they interact.
 
 This will be done by using Correlation plots.
-
+We first set up our data only using numeric columns, since correlation plots don't function with non-numeric data.
 ```{r}
 IHDataNumeric <- InternetHappinessData %>%
   select( -Country)
-
-# make correlation matrix and ignore NA values
-IHData_corr <- cor(IHDataNumeric, use = 'pairwise.complete.obs')
-
-corrplot( IHData_corr, order = 'hclust')
 ```
-We should get rid of variables that are highly correlated, since they would not be necessary in our linear model. Some variables that are highly correlated with many other variables would be GDP.per.capita and Percentage.
 
-But, the Happiness score is constructed by summing up the other variables that were present in the World Happiness Report dataset, like Social Support and Generosity. Due to this relationship, we will have to ignore these variables in our models. Here is a more accurate correlation plot of the actual data that we will be using.
+In the website for the World Happiness Report, the Happiness score is constructed by summing up the other variables that were calculated for a particular country, like Social Support and Generosity. Due to this relationship, we will have to ignore these variables in our models
 
 ```{r}
 # Not using variables included in the calculation of the happiness score
@@ -112,15 +107,14 @@ IHDataCorr2 <- cor(IHDataForModel, use = 'pairwise.complete.obs')
 
 corrplot( IHDataCorr2, order = 'hclust')
 ```
-Looking at this new correlation plot, we can see a few highly correlated variables 
+Looking at this correlation plot, we can see a few highly correlated variables 
 
 * Percentage <-> Internet.Usage.Rank
-* Happiness.score <-> Overall.rank
+* Happiness.score <-> Internet.Usage.Rank
 * Population <-> Internet.Users
 
-Also, some of the variables in the Internet usage ranking dataset are redundant, like population and Population.rank, as well as Internet.Users and Internet.Usage.Rank.
-We will sort through that using stepwise regression.
-
+Also, some of the variables in the Internet usage ranking dataset convey the same information, like population and Population.rank, as well as Internet.Users and Internet.Usage.Rank. Now that we have a good sense of some relationships in the data, as well as some reduntant data, we now need to pick only the variables we need to build the model.
+We will sort through that using Stepwise Regression.
 
 
 ## Section 3: Building Linear Models
@@ -128,11 +122,12 @@ We will sort through that using stepwise regression.
 We will now build Linear models using various combinations of model variables.
 
 
-### Use stepwise regression to pick only useful variables.
+### Using Stepwise Regression to pick only useful variables.
 
 One method that automatically picks the best variables to use in the model is called Stepwise Regression.
-We will use stepwise regression as an alternative to looking at the correlation plot and manually picking variables to use.
+We will use this method as an alternative to looking at the correlation plot and manually picking variables to use.
 
+First here is a basic linear model using all of our available data.
 ```{r}
 # Make our basic linear model
 IHModel <- lm( Happiness.Score ~ Internet.Users + Population + Population.Rank + Percentage + 
@@ -140,14 +135,19 @@ IHModel <- lm( Happiness.Score ~ Internet.Users + Population + Population.Rank +
                 data = IHDataNumeric)
 # Get score of linear model
 summary(IHModel)
+```
+This model obtained a Adjusted R-squared of 0.6345, which is not bad performance.
 
-
-# Use stepwise regression to pick only relevant variables and get the performance
+Now we will use stepwise regression to pick only relevant variables and get the performance. The way that performance is analyzed is using the Akaike Information Criterion (AIC), and essentially the lower the score is the better.
+```{r}
 IHModelStep <- step(IHModel, trace = FALSE)
-# Get score of stepwise regression model
+
 summary(IHModelStep)
 ```
-We see that our original linear model got a multiple R-squared of 0.63, while our refined model got a R-squared of 0.64. It is also surprising that the model that was decided through stepwise regression only included one variable, Internet.Usage.Rank, and that that single variable predicted it best.
+The AIC's were negative, and they got lower and lower through each cycle of the stepwise regression.
+Our refined model got an Adusted R-squared of 0.6412, which is greater than our original model's score of 0.6345. 
+
+It is also surprising that the model that was decided through stepwise regression only included one variable, Internet.Usage.Rank, and that that single variable predicted it best.
 
 
 
@@ -159,11 +159,15 @@ We will now see how our models predict the data visually and if there are any gl
 # Plot stepwise regression model
 gf_lm(Happiness.Score ~ Internet.Usage.Rank, data = IHDataNumeric) %>%
   gf_point(Happiness.Score ~ Internet.Usage.Rank)
+```
 
+One way to look for any errors in the model is to to analyze the residual plot of the data. We will calculate and plot the residuals, and look to make sure that the distribution of residuals is random about the x-axis.
+```{r}
 # Calculate and plot Residuals
 IHDataStep <- IHDataForModel %>%
   mutate(Predictions = fitted(IHModelStep),
          Residuals = resid(IHModelStep))
+
 head(IHDataStep)
 
 gf_point(Residuals ~ Predictions, data = IHDataStep) %>%
@@ -174,7 +178,7 @@ Looking at the residuals, they appear randomly distributed, so there are no appa
 
 ## Section 4: Comparing Our Models
 Get scores of the model using AIC and pick the best one.
-AIC is short for "Akaike's Information Criteria". It is used to compare different models fit to the same data. When interpreting the score, smaller is better.
+As a reminder, AIC is short for "Akaike's Information Criteria" and it is used to compare different models fit to the same data. When interpreting the score, smaller scores are better.
 
 ```{r}
 cat("AIC of Linear Model using all possible variables: ", round( AIC(IHModel), 2))
@@ -187,16 +191,14 @@ Let's get a confidence interval for the relationship between Internet usage rank
 ```{r}
 confint(IHModelStep)
 ```
-For every increase in Internet Usage Rank, we can be 95% confident that the true change in happiness is between 
-[-0.017 and -0.013].
+For every increase in Internet Usage Rank, we can be 95% confident that the true change in happiness is between [-0.017 and -0.013].
 
 
 ## Section 5: Results and Conclusion
-What does this tell us about the relationship between Internet Availability and Happiness?
+So what does this tell us about the relationship between Internet Availability and Happiness?
 
-We built a model for predicting the Happiness Score of a country given data on the internet availability in that country. Our model has a Multiple R-squared of 0.64, so it was able to explain 64% of the variation in the model. In our model there was a positive correlation between internet availability and happiness score, and we saw that the higher the rank of internet availability was, the higher the happiness score was.
+**Countries with higher Internet Usage have greater Happiness scores.**
 
-Since the happiness score is comprised of variables like GDP per capita and Social support, it is not surprising to see that countries that have higher access to internet also have more money to spend to improve life in other ways. 
+In our model for predicting the Happiness Score of a country given data on the internet availability in that country, there was a positive correlation between internet availability and happiness score, and we saw that the higher the rank of internet availability was, the higher the happiness score was.
 
-It is likely that wealthier countries have better standards of living and happier populations, which would include Internet Availability.
-
+Since the happiness score is comprised of variables like GDP per capita and Social support, it is not surprising to see that countries that have higher access to internet also have more money to spend to improve life in other ways. This does not mean that having higher internet access increases happiness, but that they often are both present together.
