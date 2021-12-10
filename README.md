@@ -2,7 +2,7 @@
 
 By Jake Bell
 
-11/1/2021
+Published 11/1/2021
 
 Built Linear Models to predict the Happiness Score of a country given various information on its Internet Availabilty and Population. 
 Used stepwise regression and correlation plots to select the best model and tested model performance with AIC and Multiple R-squared.
